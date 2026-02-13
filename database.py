@@ -1,85 +1,68 @@
 import os
 import psycopg2
-from datetime import datetime
-import json
-from src.logger import logger
-
-# Get Database URL from environment variable
-DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
-def get_db_connection():
-    """Establish connection to PostgreSQL database."""
-    if not DATABASE_URL:
-        return None
+def get_connection():
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        # Read DATABASE_URL from environment variables
+        database_url = os.environ.get("DATABASE_URL")
+        if not database_url:
+            raise ValueError("DATABASE_URL environment variable is not set")
+
+        conn = psycopg2.connect(database_url)
         return conn
     except Exception as e:
-        logger.error(f"Database connection failed: {e}")
+        print(f"Error connecting to database: {e}")
         return None
 
 
 def init_db():
-    """Create logs table if it doesn't exist."""
-    conn = get_db_connection()
-    if not conn:
-        logger.warning("No database connection. Logging to DB is disabled.")
-        return
+    """
+    Initialize the database.
+    Since the table is already created, this function is a placeholder
+    to ensure compatibility with existing app imports.
+    """
+    pass
 
+
+def insert_log(data, risk_score, risk_level):
+    conn = None
     try:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS access_logs (
-                id SERIAL PRIMARY KEY,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                ip_frequency INTEGER,
-                login_hour INTEGER,
-                login_attempts INTEGER,
-                device_type INTEGER,
-                login_success INTEGER,
-                prediction VARCHAR(20),
-                risk_level VARCHAR(20),
-                anomaly_score FLOAT
-            );
-        """
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
-        logger.info("Database initialized successfully.")
+        conn = get_connection()
+        if conn is None:
+            return
+
+        with conn:
+            with conn.cursor() as cur:
+                # insert into table login_logs
+                query = """
+                    INSERT INTO login_logs (
+                        failed_attempts,
+                        login_hour,
+                        ip_risk_score,
+                        device_type,
+                        risk_score,
+                        risk_level
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                """
+
+                # Map data dictionary keys to table columns
+                # Assuming 'login_attempts' maps to 'failed_attempts'
+                # Assuming 'ip_frequency' maps to 'ip_risk_score' based on app context
+                values = (
+                    data.get("login_attempts", 0),
+                    data.get("login_hour", 0),
+                    data.get("ip_frequency", 0),
+                    data.get("device_type", 0),
+                    risk_score,
+                    risk_level,
+                )
+
+                cur.execute(query, values)
+
+        # Connection uses transaction context above, but we still need to close it
     except Exception as e:
-        logger.error(f"Database initialization error: {e}")
-
-
-def insert_log(data, prediction, risk_level, score):
-    """Insert a new log entry into the database."""
-    conn = get_db_connection()
-    if not conn:
-        return
-
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            INSERT INTO access_logs 
-            (ip_frequency, login_hour, login_attempts, device_type, login_success, prediction, risk_level, anomaly_score)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-            (
-                data.get("ip_frequency"),
-                data.get("login_hour"),
-                data.get("login_attempts"),
-                data.get("device_type"),
-                data.get("login_success"),
-                prediction,
-                risk_level,
-                float(score),
-            ),
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        logger.error(f"Failed to log to database: {e}")
+        print(f"Error inserting log: {e}")
+    finally:
+        if conn:
+            conn.close()

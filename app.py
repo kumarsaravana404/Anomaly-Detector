@@ -5,6 +5,10 @@ A production-ready Flask web application for detecting anomalous login attempts.
 """
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
+
 from flask import Flask, render_template, request, jsonify, send_file
 import pandas as pd
 import numpy as np
@@ -198,7 +202,8 @@ def predict():
             # Log single predictions to database
             if is_single:
                 try:
-                    insert_log(row_data, prediction_label, risk, score_val)
+                    # insert_log(input_data, risk_score, risk_level)
+                    insert_log(row_data, score_val, risk)
                 except Exception as log_err:
                     logger.warning(f"Failed to log single prediction: {log_err}")
 
