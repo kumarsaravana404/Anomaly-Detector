@@ -76,6 +76,12 @@ def load_models():
 init_db()
 
 
+@app.route("/health")
+def health():
+    """Health check endpoint for Render."""
+    return jsonify({"status": "healthy", "service": "login-anomaly-detection"}), 200
+
+
 @app.route("/")
 def index():
     """Render the main page."""
@@ -310,7 +316,9 @@ def internal_error(e):
 
 
 # Load models on import so Gunicorn workers have them ready
-load_models()
+# Commented out to reduce startup time and memory on Render free tier
+# Models will be loaded on-demand when first API call is made
+# load_models()
 
 if __name__ == "__main__":
     # Use PORT environment variable if available (default 10000)
