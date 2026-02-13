@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login Anomaly Detection System</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-content">
+          <div class="logo">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+              <rect width="40" height="40" rx="8" fill="url(#gradient)" />
+              <path
+                d="M20 10L28 16V24L20 30L12 24V16L20 10Z"
+                stroke="white"
+                stroke-width="2"
+                fill="none"
+              />
+              <circle cx="20" cy="20" r="3" fill="white" />
+              <defs>
+                <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40">
+                  <stop offset="0%" stop-color="#667eea" />
+                  <stop offset="100%" stop-color="#764ba2" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <h1>Login Anomaly Detection</h1>
+          </div>
+          <div class="header-stats" id="headerStats">
+            <div class="stat-item">
+              <span class="stat-label">Status</span>
+              <span class="stat-value" id="modelStatus">Not Trained</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <!-- Tabs -->
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="train">Train Model</button>
+          <button class="tab-btn" data-tab="predict">Detect Anomalies</button>
+          <button class="tab-btn" data-tab="visualize">Visualizations</button>
+          <button class="tab-btn" data-tab="stats">Statistics</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content">
+          <!-- Train Tab -->
+          <div class="tab-pane active" id="train">
+            <div class="card">
+              <div class="card-header">
+                <h2>Train Detection Model</h2>
+                <p>
+                  Generate synthetic data and train the anomaly detection model
+                </p>
+              </div>
+              <div class="card-body">
+                <form id="trainForm">
+                  <div class="form-group">
+                    <label for="nSamples">Number of Samples</label>
+                    <input
+                      type="number"
+                      id="nSamples"
+                      name="nSamples"
+                      value="1000"
+                      min="100"
+                      max="100000"
+                      required
+                    />
+                    <small
+                      >Generate between 100 and 100,000 login records</small
+                    >
+                  </div>
+                  <div class="form-group">
+                    <label for="anomalyRatio">Anomaly Ratio (%)</label>
+                    <input
+                      type="number"
+                      id="anomalyRatio"
+                      name="anomalyRatio"
+                      value="5"
+                      min="1"
+                      max="50"
+                      step="0.1"
+                      required
+                    />
+                    <small>Percentage of anomalous logins (1% - 50%)</small>
+                  </div>
+                  <button type="submit" class="btn btn-primary" id="trainBtn">
+                    <span class="btn-text">Train Model</span>
+                    <span class="btn-loader" style="display: none"></span>
+                  </button>
+                </form>
+                <div
+                  id="trainResults"
+                  class="results-box"
+                  style="display: none"
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Predict Tab -->
+          <div class="tab-pane" id="predict">
+            <div class="card">
+              <div class="card-header">
+                <h2>Detect Anomalies</h2>
+                <p>Analyze login attempts for suspicious patterns</p>
+              </div>
+              <div class="card-body">
+                <div class="predict-options">
+                  <button class="option-btn active" data-option="single">
+                    Single Login
+                  </button>
+                  <button class="option-btn" data-option="batch">
+                    Batch Upload
+                  </button>
+                </div>
+
+                <!-- Single Login Form -->
+                <div class="predict-form" id="singleForm">
+                  <form id="singlePredictForm">
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="loginHour">Login Hour (0-23)</label>
+                        <input
+                          type="number"
+                          id="loginHour"
+                          name="loginHour"
+                          value="14"
+                          min="0"
+                          max="23"
+                          required
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label for="loginAttempts">Login Attempts</label>
+                        <input
+                          type="number"
+                          id="loginAttempts"
+                          name="loginAttempts"
+                          value="1"
+                          min="1"
+                          max="50"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="ipFrequency">IP Frequency</label>
+                        <input
+                          type="number"
+                          id="ipFrequency"
+                          name="ipFrequency"
+                          value="10"
+                          min="1"
+                          max="1000"
+                          required
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label for="deviceType">Device Type</label>
+                        <select id="deviceType" name="deviceType" required>
+                          <option value="0">Mobile</option>
+                          <option value="1" selected>Desktop</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="loginSuccess">Login Success</label>
+                      <select id="loginSuccess" name="loginSuccess" required>
+                        <option value="0">Failed</option>
+                        <option value="1" selected>Success</option>
+                      </select>
+                    </div>
+                    <button
+                      type="submit"
+                      class="btn btn-primary"
+                      id="predictBtn"
+                    >
+                      <span class="btn-text">Analyze Login</span>
+                      <span class="btn-loader" style="display: none"></span>
+                    </button>
+                  </form>
+                </div>
+
+                <!-- Batch Upload Form -->
+                <div class="predict-form" id="batchForm" style="display: none">
+                  <form id="batchPredictForm">
+                    <div class="file-upload">
+                      <input type="file" id="csvFile" accept=".csv" required />
+                      <label for="csvFile">
+                        <svg
+                          width="48"
+                          height="48"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                        >
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="17 8 12 3 7 8" />
+                          <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <span>Choose CSV file or drag here</span>
+                        <small
+                          >CSV must contain: login_hour, login_attempts,
+                          ip_frequency, device_type, login_success</small
+                        >
+                      </label>
+                    </div>
+                    <button
+                      type="submit"
+                      class="btn btn-primary"
+                      id="batchPredictBtn"
+                    >
+                      <span class="btn-text">Analyze Batch</span>
+                      <span class="btn-loader" style="display: none"></span>
+                    </button>
+                  </form>
+                </div>
+
+                <div
+                  id="predictResults"
+                  class="results-box"
+                  style="display: none"
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Visualize Tab -->
+          <div class="tab-pane" id="visualize">
+            <div class="card">
+              <div class="card-header">
+                <h2>Data Visualizations</h2>
+                <p>Interactive charts and analysis</p>
+              </div>
+              <div class="card-body">
+                <button class="btn btn-primary" id="generateVizBtn">
+                  <span class="btn-text">Generate Visualizations</span>
+                  <span class="btn-loader" style="display: none"></span>
+                </button>
+                <div
+                  id="visualizationResults"
+                  class="viz-container"
+                  style="display: none"
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats Tab -->
+          <div class="tab-pane" id="stats">
+            <div class="card">
+              <div class="card-header">
+                <h2>Model Statistics</h2>
+                <p>Current model performance and data insights</p>
+              </div>
+              <div class="card-body">
+                <button class="btn btn-primary" id="refreshStatsBtn">
+                  <span class="btn-text">Refresh Statistics</span>
+                  <span class="btn-loader" style="display: none"></span>
+                </button>
+                <div
+                  id="statsResults"
+                  class="stats-grid"
+                  style="display: none"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <p>
+          &copy; 2026 Login Anomaly Detection System. Built with Machine
+          Learning.
+        </p>
+      </footer>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  </body>
+</html>
