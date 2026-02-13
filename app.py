@@ -4,6 +4,7 @@ Login Anomaly Detection Web Application
 A production-ready Flask web application for detecting anomalous login attempts.
 """
 
+import os
 from flask import Flask, render_template, request, jsonify, send_file
 import pandas as pd
 import numpy as np
@@ -19,13 +20,27 @@ from src.anomaly_detector import LoginAnomalyDetector
 from src.visualizer import AnomalyVisualizer
 from src.config import MODELS_DIR, DATA_DIR, OUTPUTS_DIR
 from src.logger import logger
+from database import init_db, insert_log
 
 app = Flask(__name__)
+# Ensure MAX_CONTENT_LENGTH is set for file uploads
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max file size
 
 # Global variables for loaded models
 detector = None
 preprocessor = None
+
+
+def get_risk_level(score):
+    """Determine risk level based on anomaly score."""
+    if score < -0.1:
+        return "Critical"
+    elif score < -0.05:
+        return "High"
+    elif score < 0:
+        return "Medium"
+    else:
+        return "Low"
 
 
 def load_models():
@@ -53,6 +68,10 @@ def load_models():
         return False
 
 
+# Initialize database (safe call)
+init_db()
+
+
 @app.route("/")
 def index():
     """Render the main page."""
@@ -67,7 +86,6 @@ def train_model():
         n_samples = int(data.get("n_samples", 1000))
         anomaly_ratio = float(data.get("anomaly_ratio", 0.05))
 
-        # Validate inputs
         if n_samples < 100 or n_samples > 100000:
             return (
                 jsonify({"error": "Sample size must be between 100 and 100,000"}),
@@ -77,7 +95,6 @@ def train_model():
         if anomaly_ratio < 0.01 or anomaly_ratio > 0.5:
             return jsonify({"error": "Anomaly ratio must be between 0.01 and 0.5"}), 400
 
-        # Generate data
         logger.info(
             f"Generating {n_samples} samples with {anomaly_ratio*100}% anomalies"
         )
@@ -85,19 +102,16 @@ def train_model():
         df = generator.generate_dataset()
         generator.save_dataset(df)
 
-        # Preprocess
         global preprocessor
         preprocessor = LoginDataPreprocessor()
         X_scaled, y = preprocessor.preprocess(df, fit=True)
         preprocessor.save_scaler()
 
-        # Train model
         global detector
         detector = LoginAnomalyDetector(contamination=anomaly_ratio)
         detector.train(X_scaled)
         detector.save_model()
 
-        # Evaluate
         predictions, scores = detector.predict_with_scores(X_scaled)
         metrics = detector.evaluate(X_scaled, y)
 
@@ -139,6 +153,7 @@ def predict():
 
             # Read CSV file
             df = pd.read_csv(file)
+            is_single = False
 
         else:
             # Single record from JSON
@@ -154,6 +169,7 @@ def predict():
                     }
                 ]
             )
+            is_single = True
 
         # Preprocess
         X_scaled, _ = preprocessor.preprocess(df, fit=False)
@@ -164,15 +180,27 @@ def predict():
         # Prepare results
         results = []
         for i in range(len(predictions)):
+            prediction_label = "Anomaly" if predictions[i] == -1 else "Normal"
+            risk = get_risk_level(scores[i])
+            score_val = float(scores[i])
+            row_data = df.iloc[i].to_dict()
+
             results.append(
                 {
                     "index": i,
-                    "prediction": "Anomaly" if predictions[i] == -1 else "Normal",
-                    "anomaly_score": float(scores[i]),
-                    "risk_level": get_risk_level(scores[i]),
-                    "features": df.iloc[i].to_dict(),
+                    "prediction": prediction_label,
+                    "anomaly_score": score_val,
+                    "risk_level": risk,
+                    "features": row_data,
                 }
             )
+
+            # Log single predictions to database
+            if is_single:
+                try:
+                    insert_log(row_data, prediction_label, risk, score_val)
+                except Exception as log_err:
+                    logger.warning(f"Failed to log single prediction: {log_err}")
 
         return jsonify(
             {
@@ -265,35 +293,22 @@ def get_stats():
         return jsonify({"error": str(e)}), 500
 
 
-def get_risk_level(score):
-    """Determine risk level based on anomaly score."""
-    if score < -0.1:
-        return "Critical"
-    elif score < -0.05:
-        return "High"
-    elif score < 0:
-        return "Medium"
-    else:
-        return "Low"
-
-
 @app.errorhandler(404)
 def not_found(e):
-    """Handle 404 errors."""
     return jsonify({"error": "Endpoint not found"}), 404
 
 
 @app.errorhandler(500)
 def internal_error(e):
-    """Handle 500 errors."""
     logger.error(f"Internal server error: {str(e)}")
     return jsonify({"error": "Internal server error"}), 500
 
 
-if __name__ == "__main__":
-    # Load models on startup
-    load_models()
+# Load models on import so Gunicorn workers have them ready
+load_models()
 
-    # Run the application
-    logger.info("Starting Login Anomaly Detection Web Application")
-    app.run(host="0.0.0.0", port=5000, debug=False)
+if __name__ == "__main__":
+    # Use PORT environment variable if available (default 10000)
+    port = int(os.environ.get("PORT", 10000))
+    # Bind to 0.0.0.0 for external access
+    app.run(host="0.0.0.0", port=port, debug=False)

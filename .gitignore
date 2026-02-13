@@ -1,50 +1,11 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual Environment
 venv/
-ENV/
-env/
-.venv
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Project specific
-data/
-models/
-outputs/
-logs/
+__pycache__/
 *.pkl
+.env
+.DS_Store
+*.pyc
+logs/
+outputs/
+data/
 *.csv
 *.png
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Environment variables
-.env
