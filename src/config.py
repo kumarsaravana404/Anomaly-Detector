@@ -10,7 +10,10 @@ LOGS_DIR = BASE_DIR / "logs"
 
 # Create directories if they don't exist
 for directory in [DATA_DIR, MODELS_DIR, OUTPUTS_DIR, LOGS_DIR]:
-    directory.mkdir(exist_ok=True, parents=True)
+    try:
+        directory.mkdir(exist_ok=True, parents=True)
+    except Exception as e:
+        print(f"Warning: Could not create directory {directory}: {e}")
 
 # Data Generation Config
 N_SAMPLES = 1000
